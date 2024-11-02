@@ -1,0 +1,35 @@
+server:
+  port: 8080
+spring:
+  application:
+    name: reserve-system
+  datasource:
+    driver-class-name: org.postgresql.Driver
+    url: jdbc:postgresql://localhost:5432/reservesystem?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Seoul
+    username: postgres
+    password: 123
+#    hikari:
+#      maximum-pool-size: 24
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        show_sql: true
+        format_sql: true
+        use_sql_comments: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+  data:
+    redis:
+      host: localhost
+      port: 6379
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: guest
+    password: guest
+
+rabbitmq:
+  exchange: topic-exchange
+  queue: stock.alert.queue
+  routing-key: stock.alert
