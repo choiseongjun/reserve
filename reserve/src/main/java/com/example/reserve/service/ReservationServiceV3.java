@@ -9,6 +9,7 @@ import com.example.reserve.event.RabbitMQObserver;
 import com.example.reserve.event.StockAlertPublisher;
 import com.example.reserve.repository.ReservationRepository;
 import com.example.reserve.repository.StockRepository;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.redisson.api.RLock;
@@ -40,7 +41,10 @@ public class ReservationServiceV3 {
     private static final String PROCESS_KEY = "processing:1";
     private static final int TOTAL_QUANTITY = 100000;
     private final List<ReservationObserver> observers = new ArrayList<>();
-
+    @PostConstruct
+    public void init() {
+        addObserver(rabbitMQObserver);
+    }
     public void addObserver(ReservationObserver observer) {
         observers.add(observer);
     }

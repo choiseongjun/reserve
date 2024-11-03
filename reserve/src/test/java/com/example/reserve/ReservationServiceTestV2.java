@@ -159,7 +159,7 @@ public class ReservationServiceTestV2 {
     @DisplayName("100100명이 동시에 100000개를 예약한다")
     void shouldHandleConcurrentReservationsFor100100People() throws InterruptedException {
         // Given
-        reservationServiceV3.initialize(); // 초기 상태 설정
+//        reservationServiceV3.initialize(); // 초기 상태 설정
 
         int numberOfThreads = 100100;
         CountDownLatch latch = new CountDownLatch(numberOfThreads);
