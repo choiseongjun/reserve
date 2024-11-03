@@ -1,8 +1,10 @@
 package com.example.reserve.service;
 
 
+
 import com.example.reserve.entity.Reservation;
 import com.example.reserve.entity.Stock;
+import com.example.reserve.event.RabbitMQObserver;
 import com.example.reserve.event.StockAlertPublisher;
 import com.example.reserve.repository.ReservationRepository;
 import com.example.reserve.repository.StockRepository;
@@ -18,6 +20,8 @@ import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -32,12 +36,27 @@ public class ReservationServiceV2 {
     private final RedisTemplate<String, String> redisTemplate;
     private final RedissonClient redissonClient;
     private final StockAlertPublisher stockAlertPublisher;
+    private final RabbitMQObserver rabbitMQObserver;
+
 
     private static final String STOCK_KEY = "stock:1";
     private static final String RESERVATION_COUNT_KEY = "reservation:count";
     private static final String PROCESS_KEY = "processing:1";
     private static final int TOTAL_QUANTITY = 100000;
+    private final List<ReservationObserver> observers = new ArrayList<>();
 
+    @PostConstruct
+    public void init() {
+        addObserver(rabbitMQObserver);
+    }
+    public void addObserver(ReservationObserver observer) {
+        observers.add(observer);
+    }
+    private void notifyObservers(Reservation reservation) {
+        for (ReservationObserver observer : observers) {
+            observer.onReservationCreated(reservation);
+        }
+    }
 //    public void initialize() {
 //        RLock lock = redissonClient.getLock("init:lock");
 //        try {
@@ -133,6 +152,10 @@ public class ReservationServiceV2 {
 
                 // 9. 검증
                 verifyConsistency(savedStock);
+
+                // 10.알림 처리
+                notifyObservers(reservation);
+
 
                 return savedReservation;
             } finally {

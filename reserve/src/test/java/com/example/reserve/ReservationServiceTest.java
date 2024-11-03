@@ -4,8 +4,7 @@ package com.example.reserve;
 import com.example.reserve.entity.Stock;
 import com.example.reserve.repository.ReservationRepository;
 import com.example.reserve.repository.StockRepository;
-import com.example.reserve.service.ReservationService;
-import com.example.reserve.service.ReservationServiceV2;
+import com.example.reserve.service.ReservationServiceV3;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -13,13 +12,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.transaction.annotation.Isolation;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.IntStream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -36,7 +32,7 @@ public class ReservationServiceTest {
     private ReservationRepository reservationRepository;
 
     @Autowired
-    private ReservationServiceV2 reservationServiceV2;
+    private ReservationServiceV3 reservationServiceV3;
 
 //    @BeforeEach
 //    void setUp() {
@@ -171,7 +167,7 @@ public class ReservationServiceTest {
         IntStream.range(0, numberOfThreads).forEach(i -> {
             executorService.submit(() -> {
                 try {
-                    reservationServiceV2.createReservation(1L, 1); // 각 스레드에서 1개씩 예약
+                    reservationServiceV3.createReservation(1L, 1); // 각 스레드에서 1개씩 예약
                 } catch (Exception e) {
                     LOGGER.error("Reservation " + i + " failed: " + e.getMessage());
                 }

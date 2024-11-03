@@ -4,7 +4,7 @@ package com.example.reserve;
 import com.example.reserve.entity.Stock;
 import com.example.reserve.repository.ReservationRepository;
 import com.example.reserve.repository.StockRepository;
-import com.example.reserve.service.ReservationServiceV2;
+import com.example.reserve.service.ReservationServiceV3;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -34,7 +34,7 @@ public class ReservationServiceTestV2 {
     private ReservationRepository reservationRepository;
 
     @Autowired
-    private ReservationServiceV2 reservationServiceV2;
+    private ReservationServiceV3 reservationServiceV3;
     @Autowired
     private RedisTemplate<String, String> redisTemplate;
 
@@ -159,7 +159,7 @@ public class ReservationServiceTestV2 {
     @DisplayName("100100명이 동시에 100000개를 예약한다")
     void shouldHandleConcurrentReservationsFor100100People() throws InterruptedException {
         // Given
-        reservationServiceV2.initialize(); // 초기 상태 설정
+        reservationServiceV3.initialize(); // 초기 상태 설정
 
         int numberOfThreads = 100100;
         CountDownLatch latch = new CountDownLatch(numberOfThreads);
@@ -172,7 +172,7 @@ public class ReservationServiceTestV2 {
         IntStream.range(0, numberOfThreads).forEach(i -> {
             executorService.submit(() -> {
                 try {
-                    reservationServiceV2.createReservation(1L, 1);
+                    reservationServiceV3.createReservation(1L, 1);
                     successCount.incrementAndGet();
                 } catch (Exception e) {
                     failCount.incrementAndGet();
