@@ -20,16 +20,12 @@ import java.util.stream.IntStream;
 public class ReservationController {
     private final ReservationService reservationService;
 
-    private final Random random = new Random();
 
     private final StockAlertPublisher stockAlertPublisher;
     private final RabbitPublisher rabbitPublisher;
 
 
     // 랜덤 사용자 ID 생성 메서드
-    private Long generateRandomUserId() {
-        return (long) (random.nextInt(9_999_999) + 1);
-    }
 
     @Autowired
     public ReservationController(ReservationService reservationService, StockAlertPublisher stockAlertPublisher, RabbitPublisher rabbitPublisher) {
@@ -41,10 +37,9 @@ public class ReservationController {
     @PostMapping
     public ResponseEntity<Reservation> createReservation(@RequestBody ReserveRequestDto reserveRequestDto) {
 
-        Long randomUserId = generateRandomUserId();
 
         Reservation createdReservation =
-                reservationService.createReservation(reserveRequestDto.getProductId(),randomUserId,reserveRequestDto.getQuantity());
+                reservationService.createReservation(reserveRequestDto.getProductId(),reserveRequestDto.getQuantity());
         return ResponseEntity.ok(createdReservation);
     }
 //    @PostMapping("/test")
