@@ -36,39 +36,39 @@ public class ReservationServiceV2 {
     private static final String STOCK_KEY = "stock:1";
     private static final String RESERVATION_COUNT_KEY = "reservation:count";
     private static final String PROCESS_KEY = "processing:1";
-    private static final int TOTAL_QUANTITY = 10000;
+    private static final int TOTAL_QUANTITY = 100000;
 
-    public void initialize() {
-        RLock lock = redissonClient.getLock("init:lock");
-        try {
-            if (lock.tryLock(5, 10, TimeUnit.SECONDS)) {
-                try {
-                    // Redis 초기화
-                    Stock stock = stockRepository.findByProductId(1L)
-                            .orElseThrow(() -> new IllegalArgumentException("재고 없음"));
-
-                    redisTemplate.delete(STOCK_KEY);
-                    redisTemplate.delete(RESERVATION_COUNT_KEY);
-                    redisTemplate.delete(PROCESS_KEY);
-
-                    redisTemplate.opsForValue().set(STOCK_KEY, String.valueOf(TOTAL_QUANTITY));
-                    redisTemplate.opsForValue().set(RESERVATION_COUNT_KEY, "0");
-
-                    // DB 초기화
-                    stock.setQuantity(TOTAL_QUANTITY);
-                    stockRepository.save(stock);
-
-                    // 기존 예약 정보 삭제
-                    reservationRepository.deleteAll();
-                } finally {
-                    lock.unlock();
-                }
-            }
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new RuntimeException("초기화 실패", e);
-        }
-    }
+//    public void initialize() {
+//        RLock lock = redissonClient.getLock("init:lock");
+//        try {
+//            if (lock.tryLock(5, 10, TimeUnit.SECONDS)) {
+//                try {
+//                    // Redis 초기화
+//                    Stock stock = stockRepository.findByProductId(1L)
+//                            .orElseThrow(() -> new IllegalArgumentException("재고 없음"));
+//
+//                    redisTemplate.delete(STOCK_KEY);
+//                    redisTemplate.delete(RESERVATION_COUNT_KEY);
+//                    redisTemplate.delete(PROCESS_KEY);
+//
+//                    redisTemplate.opsForValue().set(STOCK_KEY, String.valueOf(TOTAL_QUANTITY));
+//                    redisTemplate.opsForValue().set(RESERVATION_COUNT_KEY, "0");
+//
+//                    // DB 초기화
+//                    stock.setQuantity(TOTAL_QUANTITY);
+//                    stockRepository.save(stock);
+//
+//                    // 기존 예약 정보 삭제
+//                    reservationRepository.deleteAll();
+//                } finally {
+//                    lock.unlock();
+//                }
+//            }
+//        } catch (InterruptedException e) {
+//            Thread.currentThread().interrupt();
+//            throw new RuntimeException("초기화 실패", e);
+//        }
+//    }
 
     @Transactional
     public Reservation createReservation(Long productId, int quantity) {
@@ -156,7 +156,7 @@ public class ReservationServiceV2 {
 
             if (redisStockInt != stock.getQuantity() ||
                     (TOTAL_QUANTITY - reservationCountInt) != stock.getQuantity()) {
-                log.error("Data inconsistency detected! DB Stock: {}, Redis Stock: {}, Reservation Count: {}",
+                log.error("데이터 정합성 불일치 detected! DB Stock: {}, Redis Stock: {}, Reservation Count: {}",
                         stock.getQuantity(), redisStockInt, reservationCountInt);
 
                 redisTemplate.opsForValue().set(STOCK_KEY, String.valueOf(stock.getQuantity()));
@@ -167,7 +167,7 @@ public class ReservationServiceV2 {
     }
 
     private Long generateRandomUserId() {
-        return (long) (new Random().nextInt(9_999_999) + 1);
+        return (long) (new Random().nextInt(999_999_999) + 1);
     }
 
     @Scheduled(fixedRate = 1000)

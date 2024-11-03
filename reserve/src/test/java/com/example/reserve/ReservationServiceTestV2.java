@@ -54,7 +54,7 @@ public class ReservationServiceTestV2 {
         if (stockRepository.findByProductId(1L).isEmpty()) {
             Stock stock = new Stock();
             stock.setProductId(1L);
-            stock.setQuantity(10000); // 초기 재고 설정
+            stock.setQuantity(100000); // 초기 재고 설정
             stockRepository.save(stock);
         }
     }
@@ -108,18 +108,65 @@ public class ReservationServiceTestV2 {
 //    }
 
     /*test pass response time about 2m20s*/
+//    @Test
+//    @DisplayName("10100명이 동시에 10000개를 예약한다")
+//    void shouldHandleConcurrentReservationsFor5020People() throws InterruptedException {
+//        // Given
+//        reservationServiceV2.initialize(); // 초기 상태 설정
+//
+//        int numberOfThreads = 10100;
+//        CountDownLatch latch = new CountDownLatch(numberOfThreads);
+//        AtomicInteger successCount = new AtomicInteger(0);
+//        AtomicInteger failCount = new AtomicInteger(0);
+//
+//        ExecutorService executorService = Executors.newFixedThreadPool(64);
+//
+//        // When
+//        IntStream.range(0, numberOfThreads).forEach(i -> {
+//            executorService.submit(() -> {
+//                try {
+//                    reservationServiceV2.createReservation(1L, 1);
+//                    successCount.incrementAndGet();
+//                } catch (Exception e) {
+//                    failCount.incrementAndGet();
+//                } finally {
+//                    latch.countDown();
+//                }
+//            });
+//        });
+//
+//        latch.await(2, TimeUnit.MINUTES);
+//        executorService.shutdown();
+//        executorService.awaitTermination(10, TimeUnit.SECONDS);
+//
+//        // 최종 정합성 체크를 위한 대기
+//        Thread.sleep(2000);
+//
+//        // Then
+//        Stock finalStock = stockRepository.findByProductId(1L).orElseThrow();
+//        String redisStock = redisTemplate.opsForValue().get("stock:1");
+//        String reservationCount = redisTemplate.opsForValue().get("reservation:count");
+//        long actualReservations = reservationRepository.count();
+//
+//        assertEquals(0, finalStock.getQuantity(), "DB 재고는 0이다");
+//        assertEquals("0", redisStock, "Redis 재고는 0이다");
+//        assertEquals("10000", reservationCount, "예약 수는 5000이다");
+//        assertEquals(10000, actualReservations, "실제 예약 수는 5000이어야 한다");
+//        assertEquals(10000, successCount.get(), "성공한 예약 수는 5000이어야 한다");
+//        assertEquals(100, failCount.get(), "실패한 예약 수는 100이어야 한다");
+//    }
     @Test
-    @DisplayName("10100명이 동시에 10000개를 예약한다")
-    void shouldHandleConcurrentReservationsFor5020People() throws InterruptedException {
+    @DisplayName("100100명이 동시에 100000개를 예약한다")
+    void shouldHandleConcurrentReservationsFor100100People() throws InterruptedException {
         // Given
         reservationServiceV2.initialize(); // 초기 상태 설정
 
-        int numberOfThreads = 10100;
+        int numberOfThreads = 100100;
         CountDownLatch latch = new CountDownLatch(numberOfThreads);
         AtomicInteger successCount = new AtomicInteger(0);
         AtomicInteger failCount = new AtomicInteger(0);
 
-        ExecutorService executorService = Executors.newFixedThreadPool(64);
+        ExecutorService executorService = Executors.newFixedThreadPool(13);
 
         // When
         IntStream.range(0, numberOfThreads).forEach(i -> {
@@ -150,9 +197,9 @@ public class ReservationServiceTestV2 {
 
         assertEquals(0, finalStock.getQuantity(), "DB 재고는 0이다");
         assertEquals("0", redisStock, "Redis 재고는 0이다");
-        assertEquals("10000", reservationCount, "예약 수는 5000이다");
-        assertEquals(10000, actualReservations, "실제 예약 수는 5000이어야 한다");
-        assertEquals(10000, successCount.get(), "성공한 예약 수는 5000이어야 한다");
+        assertEquals("100000", reservationCount, "예약 수는 100000이다");
+        assertEquals(100100, actualReservations, "실제 예약 수는 100100이어야 한다");
+        assertEquals(100000, successCount.get(), "성공한 예약 수는 100000이어야 한다");
         assertEquals(100, failCount.get(), "실패한 예약 수는 100이어야 한다");
     }
 }

@@ -2,10 +2,12 @@ package com.example.reserve.entity;
 
 import jakarta.persistence.*;
 import lombok.Data;
+import org.hibernate.annotations.DynamicUpdate;
 
 @Data
 @Entity
 @Table(name = "stock", uniqueConstraints = @UniqueConstraint(columnNames = "product_id"))
+@DynamicUpdate
 public class Stock {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
