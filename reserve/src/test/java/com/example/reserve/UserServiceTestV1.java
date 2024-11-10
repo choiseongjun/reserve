@@ -2,6 +2,7 @@ package com.example.reserve;
 
 import com.example.reserve.entity.User;
 import com.example.reserve.entity.UserInfo;
+import com.example.reserve.entity.UserUpdateLog;
 import com.example.reserve.repository.UserInfoRepository;
 import com.example.reserve.repository.UserRepository;
 import com.example.reserve.service.UserServiceV1;
@@ -72,5 +73,46 @@ public class UserServiceTestV1 {
         assertEquals("User2", updatedUser.getName());
         assertEquals("대구", updatedInfo.getAddress());;
 
+    }
+    @Test
+    @DisplayName("다수의 유저가 동시에 유저 정보를 접근했을 때 최종 변경 값을 불러온다 - 1000명 동시 접근")
+    void testConcurrentUpdateWithMultipleUsers() throws InterruptedException {
+        User user = new User();
+        user.setName("성준");
+        user.setAge(30);
+        userRepository.save(user);
+
+        UserInfo userInfo = new UserInfo();
+        userInfo.setUserId(user.getId());
+        userInfo.setAddress("서울");
+        userInfo.setPhone("010-1234-5678");
+        userInfoRepository.save(userInfo);
+
+        int threadCount = 1000;
+        Thread[] threads = new Thread[threadCount];
+
+        for (int i = 0; i < threadCount; i++) {
+            final int index = i;
+            threads[i] = new Thread(() -> {
+                String newName = "User" + index;
+                String newAddress = "도시" + index;
+                String newPhone = "010-" + String.format("%04d-%04d", index, index);
+                userService.updateUserAndInfo(user.getId(), newName, 30 + index, newAddress, newPhone);
+            });
+        }
+
+        for (Thread thread : threads) {
+            thread.start();
+        }
+
+        for (Thread thread : threads) {
+            thread.join();
+        }
+
+        UserUpdateLog latestLog = userService.getLatestUpdateLog(user.getId());
+        LOGGER.info("최종 업데이트 로그 - 유저 이름: {}, 나이: {}, 주소: {}, 전화번호: {}, 수정 시간: {}",
+                latestLog.getUpdatedBy(), latestLog.getUpdatedAge(),
+                latestLog.getUpdatedAddress(), latestLog.getUpdatedPhone(),
+                latestLog.getUpdatedAt());
     }
 }

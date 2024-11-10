@@ -2,8 +2,10 @@ package com.example.reserve.service;
 
 import com.example.reserve.entity.User;
 import com.example.reserve.entity.UserInfo;
+import com.example.reserve.entity.UserUpdateLog;
 import com.example.reserve.repository.UserInfoRepository;
 import com.example.reserve.repository.UserRepository;
+import com.example.reserve.repository.UserUpdateLogRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -14,6 +16,7 @@ public class UserServiceV1 {
 
     private final UserRepository userRepository;
     private final UserInfoRepository userInfoRepository;
+    private final UserUpdateLogRepository userUpdateLogRepository;
 
     @Transactional
     public void updateUserAndInfo(Long userId, String newName, Integer newAge, String newAddress, String newPhone) {
@@ -31,6 +34,9 @@ public class UserServiceV1 {
         userInfo.setAddress(newAddress);
         userInfo.setPhone(newPhone);
         userInfoRepository.save(userInfo);
+
+        UserUpdateLog log = new UserUpdateLog(userId, newName, newAge, newAddress, newPhone);
+        userUpdateLogRepository.save(log);
     }
 
     @Transactional(readOnly = true)
@@ -43,5 +49,11 @@ public class UserServiceV1 {
     public UserInfo getUserInfo(Long userId) {
         return userInfoRepository.findByUserIdWithLock(userId)
                 .orElseThrow(() -> new RuntimeException("UserInfo not found"));
+    }
+
+    @Transactional(readOnly = true)
+    public UserUpdateLog getLatestUpdateLog(Long userId) {
+        return userUpdateLogRepository.findTopByUserIdOrderByUpdatedAtDesc(userId)
+                .orElseThrow(() -> new RuntimeException("No update log found for user"));
     }
 }
