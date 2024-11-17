@@ -42,6 +42,8 @@ dependencies {
 //	implementation("org.springframework.boot:spring-boot-starter-web") {
 //		exclude(module = "spring-boot-starter-tomcat") // Tomcat 제외
 //	}	// https://mvnrepository.com/artifact/org.springframework.boot/spring-boot-starter-undertow
+// https://mvnrepository.com/artifact/org.springframework.boot/spring-boot-starter-cache
+	implementation("org.springframework.boot:spring-boot-starter-cache:3.3.5")
 
 	// https://mvnrepository.com/artifact/org.postgresql/postgresql
 // https://mvnrepository.com/artifact/org.postgresql/postgresql

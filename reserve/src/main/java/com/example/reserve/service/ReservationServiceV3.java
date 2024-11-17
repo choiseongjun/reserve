@@ -36,6 +36,12 @@ public class ReservationServiceV3 {
     private final RabbitMQObserver rabbitMQObserver;
 
 
+
+
+
+
+
+
     private static final String STOCK_KEY = "stock:1";
     private static final String RESERVATION_COUNT_KEY = "reservation:count";
     private static final String PROCESS_KEY = "processing:1";

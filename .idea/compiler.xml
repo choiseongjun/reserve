@@ -10,5 +10,16 @@
         <module name="reserve.main" />
       </profile>
     </annotationProcessing>
+    <bytecodeTargetLevel>
+      <module name="consume1-server" target="21" />
+      <module name="consume1-server.main" target="21" />
+      <module name="consume1-server.test" target="21" />
+      <module name="consume2-server" target="21" />
+      <module name="consume2-server.main" target="21" />
+      <module name="consume2-server.test" target="21" />
+      <module name="consume3-server" target="21" />
+      <module name="consume3-server.main" target="21" />
+      <module name="consume3-server.test" target="21" />
+    </bytecodeTargetLevel>
   </component>
 </project>
