@@ -6,7 +6,6 @@ import com.example.reserve.constants.ReservationConstants;
 import com.example.reserve.entity.Reservation;
 import com.example.reserve.entity.Stock;
 import com.example.reserve.event.RabbitMQObserver;
-import com.example.reserve.event.StockAlertPublisher;
 import com.example.reserve.repository.ReservationRepository;
 import com.example.reserve.repository.StockRepository;
 import jakarta.annotation.PostConstruct;
@@ -17,6 +16,7 @@ import org.redisson.api.RedissonClient;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
@@ -28,49 +28,74 @@ import java.util.concurrent.TimeUnit;
 @RequiredArgsConstructor
 @Slf4j
 public class ReservationServiceV3 {
+
     private final StockRepository stockRepository;
     private final ReservationRepository reservationRepository;
     private final RedisTemplate<String, String> redisTemplate;
     private final RedissonClient redissonClient;
-    private final StockAlertPublisher stockAlertPublisher;
     private final RabbitMQObserver rabbitMQObserver;
-
-
-
-
-
-
-
 
     private static final String STOCK_KEY = "stock:1";
     private static final String RESERVATION_COUNT_KEY = "reservation:count";
     private static final String PROCESS_KEY = "processing:1";
     private static final int TOTAL_QUANTITY = 100000;
     private final List<ReservationObserver> observers = new ArrayList<>();
+
     @PostConstruct
     public void init() {
         addObserver(rabbitMQObserver);
     }
+
     public void addObserver(ReservationObserver observer) {
         observers.add(observer);
     }
 
+
+    public int getQueuePositionByUserId(Long userId) {
+        String queueKey = "reservation:queue";
+
+        // 대기열 전체 조회
+        List<String> queueItems = redisTemplate.opsForList().range(queueKey, 0, -1);
+        if (queueItems == null || queueItems.isEmpty()) {
+            return -1; // 대기열이 비어있음
+        }
+
+        // 유저 ID 기반 위치 확인
+        int position = 0;
+        for (String item : queueItems) {
+            if (item.startsWith(userId + ":")) { // 유저 ID로 시작하는 항목 확인
+                return position + 1; // 0부터 시작하므로 1을 더함
+            }
+            position++;
+        }
+
+        return -1; // 해당 유저를 찾지 못함
+    }
+
     @Transactional
-    public Reservation createReservation(Long productId, int quantity) {
+    public Reservation createReservation(Long userId, Long productId, int quantity) {
         String lockKey = ReservationConstants.LOCK_KEY_PREFIX + productId;
         RLock lock = redissonClient.getLock(lockKey);
 
         try {
             if (!acquireLock(lock)) {
+                // 락 획득 실패 -> 대기열에 추가
+                addToQueue(userId, productId, quantity);
                 throw new RuntimeException(ErrorCodes.FAILED_TO_ACQUIRE_LOCK);
             }
-            return processReservation(productId, quantity);
+
+            // 락 획득 성공 -> 예약 처리
+            return processReservation(userId, productId, quantity);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new RuntimeException(ErrorCodes.THREAD_INTERRUPTED, e);
         } finally {
             releaseLock(lock);
         }
+    }
+
+    private Long generateRandomUserId() {
+        return (long) (new Random().nextInt(999_999_999) + 1);
     }
 
     private boolean acquireLock(RLock lock) throws InterruptedException {
@@ -83,20 +108,26 @@ public class ReservationServiceV3 {
         }
     }
 
-    private Reservation processReservation(Long productId, int quantity) {
+    private Reservation processReservation(Long userId, Long productId, int quantity) {
         try {
             checkProcessingLimit();
             int currentStock = getAndCheckRedisStock(quantity);
+            log.info("Redis Stock Before DB Update: {}", currentStock);
 
             Stock stock = getAndCheckDBStock(productId, currentStock);
+            log.info("DB Stock Before Update: {}", stock.getQuantity());
 
             updateStock(stock, quantity);
-            Reservation reservation = saveReservation(productId, quantity);
+            log.info("DB Stock After Update: {}", stock.getQuantity());
+
+            Reservation reservation = saveReservation(userId, productId, quantity);
 
             updateRedisStock(quantity);
+            log.info("Redis Stock After Update: {}", redisTemplate.opsForValue().get("stock:1"));
+
             verifyConsistency(stock);
 
-            notifyObservers(reservation);
+//            notifyObservers(reservation);
 
             return reservation;
         } finally {
@@ -106,7 +137,7 @@ public class ReservationServiceV3 {
 
     private void checkProcessingLimit() {
         Long processing = redisTemplate.opsForValue().increment(ReservationConstants.PROCESS_KEY);
-        if(processing!=null){
+        if (processing != null) {
             if (processing > ReservationConstants.TOTAL_QUANTITY) {
                 redisTemplate.opsForValue().decrement(ReservationConstants.PROCESS_KEY);
                 throw new IllegalStateException(ErrorCodes.STOCK_EXHAUSTED);
@@ -132,6 +163,8 @@ public class ReservationServiceV3 {
         Stock stock = stockRepository.findByProductIdWithPessimisticLock(productId)
                 .orElseThrow(() -> new IllegalArgumentException(ErrorCodes.STOCK_NOT_FOUND_IN_DB));
 
+        log.info("quantity= {}",quantity);
+        log.info("stock quantity= {}",stock.getQuantity());
         if (stock.getQuantity() < quantity) {
             throw new IllegalStateException(ErrorCodes.INSUFFICIENT_DB_STOCK);
         }
@@ -144,13 +177,15 @@ public class ReservationServiceV3 {
         stockRepository.saveAndFlush(stock);
     }
 
-    private Reservation saveReservation(Long productId, int quantity) {
+    protected Reservation saveReservation(Long userId, Long productId, int quantity) {
         Reservation reservation = Reservation.builder()
+                .userId(userId)
                 .productId(productId)
-                .userId(generateRandomUserId())
                 .quantity(quantity)
                 .build();
-        return reservationRepository.saveAndFlush(reservation);
+        Reservation savedReservation = reservationRepository.saveAndFlush(reservation); // 강제로 플러시
+        log.info("Reservation saved: id={}, userId={}, productId={}, quantity={}", savedReservation.getId(), userId, productId, quantity);
+        return savedReservation;
     }
 
     private void updateRedisStock(int quantity) {
@@ -172,7 +207,6 @@ public class ReservationServiceV3 {
 
             if (redisStockInt != stock.getQuantity() ||
                     (ReservationConstants.TOTAL_QUANTITY - reservationCountInt) != stock.getQuantity()) {
-                // this section not sync redis & rdb
                 log.error("Data consistency mismatch detected! DB Stock: {}, Redis Stock: {}, Reservation Count: {}",
                         stock.getQuantity(), redisStockInt, reservationCountInt);
 
@@ -183,27 +217,62 @@ public class ReservationServiceV3 {
         }
     }
 
-    private Long generateRandomUserId() {
-        return (long) (new Random().nextInt(999_999_999) + 1);
+    // 대기열에 추가
+    private void addToQueue(Long userId, Long productId, int quantity) {
+        String queueKey = "reservation:queue";
+        String queueItem = userId + ":" + productId + ":" + quantity;
+
+        redisTemplate.opsForList().rightPush(queueKey, queueItem); // 대기열에 추가
+        log.info("Request added to queue. User ID: {}, Product ID: {}, Quantity: {}", userId, productId, quantity);
     }
 
-    @Scheduled(fixedRate = 1000)
+    // 대기열 처리
+    @Scheduled(fixedRate = 100) // 0.1초마다 실행
     @Transactional
-    public void checkAndRepairConsistency() {
-        RLock lock = redissonClient.getLock(ReservationConstants.CONSISTENCY_LOCK_KEY);
-        try {
-            if (acquireLock(lock)) {
-                try {
-                    Stock stock = stockRepository.findByProductId(1L)
-                            .orElseThrow(() -> new IllegalArgumentException(ErrorCodes.STOCK_NOT_FOUND_IN_DB));
-                    verifyConsistency(stock);
-                } finally {
-                    releaseLock(lock);
-                }
+    public void processQueue() {
+        String queueKey = "reservation:queue";
+
+        for (int i = 0; i < 10; i++) { // 한 번에 최대 10개 처리
+            String queueItem = redisTemplate.opsForList().leftPop(queueKey);
+            if (queueItem == null) {
+                break; // 대기열이 비어있으면 종료
             }
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            log.error(ErrorCodes.THREAD_INTERRUPTED, e);
+
+            String[] parts = queueItem.split(":");
+            Long userId = Long.parseLong(parts[0]);
+            Long productId = Long.parseLong(parts[1]);
+            int quantity = Integer.parseInt(parts[2]);
+
+            try {
+                log.info("Processing queued request. User ID: {}, Product ID: {}, Quantity: {}", userId, productId, quantity);
+                processReservation(userId, productId, quantity);
+            } catch (Exception e) {
+                log.error("Failed to process queued request. User ID: {}, Product ID: {}, Quantity: {}", userId, productId, quantity, e);
+                addToQueue(userId, productId, quantity); // 실패 시 다시 대기열에 추가
+            }
         }
+    }
+    public int getQueuePosition(Long userId, Long productId, int quantity) {
+        String queueKey = "reservation:queue";
+
+        // 대기열 전체 조회
+        List<String> queueItems = redisTemplate.opsForList().range(queueKey, 0, -1);
+        if (queueItems == null) {
+            return -1; // 대기열이 비어있음
+        }
+
+        // 요청 항목 생성
+        String targetItem = userId + ":" + productId + ":" + quantity;
+
+        // 요청 위치 검색
+        int position = 0;
+        for (String item : queueItems) {
+            if (item.equals(targetItem)) {
+                return position + 1; // 대기열은 0부터 시작하므로 1을 더해 반환
+            }
+            position++;
+        }
+
+        return -1; // 요청을 찾지 못함
     }
 }

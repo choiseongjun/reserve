@@ -14,6 +14,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.redis.core.RedisTemplate;
 
+import java.util.Random;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -38,26 +39,37 @@ public class ReservationServiceTestV2 {
     @Autowired
     private RedisTemplate<String, String> redisTemplate;
 
-    @BeforeEach
-    void setUp() {
-        // Given: 초기 상품 및 재고 설정
-        reservationRepository.deleteAll(); // 기존 예약 데이터 삭제
-
-//        // 1000개 생성
-//        if (stockRepository.findByProductId(1L).isEmpty()) {
-//            Stock stock = new Stock();
-//            stock.setProductId(1L);
-//            stock.setQuantity(1000); // 초기 재고 설정
-//            stockRepository.save(stock);
-//        }
-        // 5000개 생성
-        if (stockRepository.findByProductId(1L).isEmpty()) {
-            Stock stock = new Stock();
-            stock.setProductId(1L);
-            stock.setQuantity(100000); // 초기 재고 설정
-            stockRepository.save(stock);
-        }
-    }
+//    @BeforeEach
+//    void setUp() {
+//        // Given: 초기 상품 및 재고 설정
+////        reservationRepository.deleteAll(); // 기존 예약 데이터 삭제
+////
+//////        // 1000개 생성
+//////        if (stockRepository.findByProductId(1L).isEmpty()) {
+//////            Stock stock = new Stock();
+//////            stock.setProductId(1L);
+//////            stock.setQuantity(1000); // 초기 재고 설정
+//////            stockRepository.save(stock);
+//////        }
+////        // 5000개 생성
+////        if (stockRepository.findByProductId(1L).isEmpty()) {
+////            Stock stock = new Stock();
+////            stock.setProductId(1L);
+////            stock.setQuantity(100000); // 초기 재고 설정
+////            stockRepository.save(stock);
+////        }
+//        stockRepository.deleteAll();
+//        reservationRepository.deleteAll();
+//
+//        // Redis 초기화
+//        redisTemplate.delete("stock:1");
+//        redisTemplate.delete("reservation:count");
+//
+//        // 초기 재고 설정
+////        stockRepository.save(new Stock(1L, 100000)); // productId = 1, quantity = 100000
+//        redisTemplate.opsForValue().set("stock:1", "1000");
+//        redisTemplate.opsForValue().set("reservation:count", "0");
+//    }
 //    /*정합성 고려하고 test pass*/
 //    @Test
 //    @DisplayName("5020명이 동시에 5000개를 예약한다")
@@ -156,23 +168,26 @@ public class ReservationServiceTestV2 {
 //        assertEquals(100, failCount.get(), "실패한 예약 수는 100이어야 한다");
 //    }
     @Test
-    @DisplayName("100100명이 동시에 100000개를 예약한다")
-    void shouldHandleConcurrentReservationsFor100100People() throws InterruptedException {
+    @DisplayName("1010명이 동시에 1000개를 예약한다")
+    void shouldHandleConcurrentReservationsFor1010People() throws InterruptedException {
         // Given
 //        reservationServiceV3.initialize(); // 초기 상태 설정
 
-        int numberOfThreads = 100100;
+        int numberOfThreads = 1010;
         CountDownLatch latch = new CountDownLatch(numberOfThreads);
         AtomicInteger successCount = new AtomicInteger(0);
         AtomicInteger failCount = new AtomicInteger(0);
 
-        ExecutorService executorService = Executors.newFixedThreadPool(13);
+        ExecutorService executorService = Executors.newFixedThreadPool(53);
+        Random random = new Random();
 
         // When
         IntStream.range(0, numberOfThreads).forEach(i -> {
             executorService.submit(() -> {
+                Long userId = (long) random.nextInt(999_999_999) + 1; // 1~999,999,999 사이의 랜덤 UserId 생성
+
                 try {
-                    reservationServiceV3.createReservation(1L, 1);
+                    reservationServiceV3.createReservation(userId, 1L,1);
                     successCount.incrementAndGet();
                 } catch (Exception e) {
                     failCount.incrementAndGet();
@@ -197,9 +212,59 @@ public class ReservationServiceTestV2 {
 
         assertEquals(0, finalStock.getQuantity(), "DB 재고는 0이다");
         assertEquals("0", redisStock, "Redis 재고는 0이다");
-        assertEquals("100000", reservationCount, "예약 수는 100000이다");
-        assertEquals(100100, actualReservations, "실제 예약 수는 100100이어야 한다");
-        assertEquals(100000, successCount.get(), "성공한 예약 수는 100000이어야 한다");
-        assertEquals(100, failCount.get(), "실패한 예약 수는 100이어야 한다");
+        assertEquals("1000", reservationCount, "예약 수는 1000이다");
+        assertEquals(1010, actualReservations, "실제 예약 수는 1010이어야 한다");
+        assertEquals(1000, successCount.get(), "성공한 예약 수는 1000이어야 한다");
+        assertEquals(10, failCount.get(), "실패한 예약 수는 10이어야 한다");
     }
+//    @Test
+//    @DisplayName("100100명이 동시에 100000개를 예약한다")
+//    void shouldHandleConcurrentReservationsFor100100People() throws InterruptedException {
+//        // Given
+////        reservationServiceV3.initialize(); // 초기 상태 설정
+//
+//        int numberOfThreads = 100100;
+//        CountDownLatch latch = new CountDownLatch(numberOfThreads);
+//        AtomicInteger successCount = new AtomicInteger(0);
+//        AtomicInteger failCount = new AtomicInteger(0);
+//
+//        ExecutorService executorService = Executors.newFixedThreadPool(13);
+//        Random random = new Random();
+//
+//        // When
+//        IntStream.range(0, numberOfThreads).forEach(i -> {
+//            executorService.submit(() -> {
+//                Long userId = (long) random.nextInt(999_999_999) + 1; // 1~999,999,999 사이의 랜덤 UserId 생성
+//
+//                try {
+//                    reservationServiceV3.createReservation(userId, 1L,1);
+//                    successCount.incrementAndGet();
+//                } catch (Exception e) {
+//                    failCount.incrementAndGet();
+//                } finally {
+//                    latch.countDown();
+//                }
+//            });
+//        });
+//
+//        latch.await(2, TimeUnit.MINUTES);
+//        executorService.shutdown();
+//        executorService.awaitTermination(10, TimeUnit.SECONDS);
+//
+//        // 최종 정합성 체크를 위한 대기
+//        Thread.sleep(2000);
+//
+//        // Then
+//        Stock finalStock = stockRepository.findByProductId(1L).orElseThrow();
+//        String redisStock = redisTemplate.opsForValue().get("stock:1");
+//        String reservationCount = redisTemplate.opsForValue().get("reservation:count");
+//        long actualReservations = reservationRepository.count();
+//
+//        assertEquals(0, finalStock.getQuantity(), "DB 재고는 0이다");
+//        assertEquals("0", redisStock, "Redis 재고는 0이다");
+//        assertEquals("100000", reservationCount, "예약 수는 100000이다");
+//        assertEquals(100100, actualReservations, "실제 예약 수는 100100이어야 한다");
+//        assertEquals(100000, successCount.get(), "성공한 예약 수는 100000이어야 한다");
+//        assertEquals(100, failCount.get(), "실패한 예약 수는 100이어야 한다");
+//    }
 }

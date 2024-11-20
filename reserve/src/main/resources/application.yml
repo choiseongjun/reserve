@@ -36,3 +36,8 @@ rabbitmq:
   exchange: topic-exchange
   queue: stock.alert.queue
   routing-key: stock.alert
+logging:
+  level:
+    org:
+      springframework:
+        transaction: DEBUG

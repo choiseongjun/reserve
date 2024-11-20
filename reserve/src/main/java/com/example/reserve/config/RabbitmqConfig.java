@@ -105,4 +105,21 @@ public class RabbitmqConfig {
                 .to(topicExchange)
                 .with("subQueue1.*");
     }
+    @Bean
+    public Queue reservationQueue() {
+        return new Queue("reservation.queue", true); // Durable queue
+    }
+
+    @Bean
+    public DirectExchange reservationExchange() {
+        return new DirectExchange("reservation.exchange");
+    }
+
+    @Bean
+    public Binding reservationBinding(Queue reservationQueue, DirectExchange reservationExchange) {
+        return BindingBuilder
+                .bind(reservationQueue)
+                .to(reservationExchange)
+                .with("reservation.routingKey");
+    }
 }

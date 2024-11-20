@@ -167,7 +167,7 @@ public class ReservationServiceTest {
         IntStream.range(0, numberOfThreads).forEach(i -> {
             executorService.submit(() -> {
                 try {
-                    reservationServiceV3.createReservation(1L, 1); // 각 스레드에서 1개씩 예약
+                    reservationServiceV3.createReservation(1L,1L, 1); // 각 스레드에서 1개씩 예약
                 } catch (Exception e) {
                     LOGGER.error("Reservation " + i + " failed: " + e.getMessage());
                 }

@@ -4,13 +4,16 @@ import com.example.reserve.dto.RabbitMessage;
 import lombok.RequiredArgsConstructor;
 import org.springframework.amqp.core.TopicExchange;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 @Service
 @RequiredArgsConstructor
 public class RabbitPublisher {
 
+    @Autowired
     private final RabbitTemplate rabbitTemplate;
+    @Autowired
     private final TopicExchange topicExchange;
 
     public void sendMessage(RabbitMessage message){
