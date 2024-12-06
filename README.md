@@ -17,7 +17,7 @@ Concurrent Programming
 
 비관적 락 (PostgreSQL)
 분산 락 (Redis)
-동시 요청 처리 (1010명의 사용자, 1000개 재고)
+동시 요청 처리 
 
 동시성 처리 전략
 
